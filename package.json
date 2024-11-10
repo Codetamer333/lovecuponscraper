@@ -3,15 +3,20 @@
   "version": "1.0.0",
   "main": "lovecoupons.js",
   "type": "module",
+  "description": "lovecupons scraper",
+  "engines": {
+      "node": ">=18.0.0"
+  },
   "scripts": {
-    "test": "node lovecoupon.js"
+    "start": "node lovecoupon.js"
   },
   "author": "Codetamer333",
   "license": "ISC",
-  "description": "",
   "dependencies": {
-    "dotenv": "^16.4.5",
-    "pg": "^8.13.1",
-    "puppeteer": "^23.7.1"
+  "dotenv": "^16.4.5",
+  "pg": "^8.13.1",
+  "puppeteer": "^23.7.1",
+	"apify": "^3.1.10",
+  "crawlee": "^3.5.4"
   }
 }
