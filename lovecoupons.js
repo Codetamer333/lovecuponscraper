@@ -4,11 +4,10 @@ import { CheerioCrawler, RequestList } from 'crawlee';
 async function main() {
     await Actor.init();
 
-    const alphabet = ['0-9','a'];
-    
-    // Create initial requests
-    const startUrls = alphabet.map(letter => ({
-        url: `https://www.lovecoupons.ro/brands/${letter === '0-9' ? '' : letter}`,
+    // Get input URLs from Apify input
+    const input = await Actor.getInput();
+    const startUrls = input.urls.map(url => ({
+        url,
         userData: { label: 'BRAND_LIST' }
     }));
 
