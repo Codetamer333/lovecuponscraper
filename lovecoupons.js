@@ -1,5 +1,9 @@
 import { Actor } from 'apify';
-import puppeteer from "puppeteer";
+import puppeteer from "puppeteer-extra";
+import StealthPlugin from "puppeteer-extra-plugin-stealth";
+
+// Add stealth plugin
+puppeteer.use(StealthPlugin());
 
 async function collectBrandUrls(page) {
     const brandUrls = [];
@@ -12,37 +16,60 @@ async function collectBrandUrls(page) {
         console.log(`Navigating to: ${url}`);
         
         try {
-            // Navigate to the page and wait for network to be idle
+            // Navigate with longer timeout and wait until HTML is loaded
             await page.goto(url, { 
-                waitUntil: 'networkidle0',
-                timeout: 30000 // Increase timeout to handle Cloudflare
+                waitUntil: 'domcontentloaded',
+                timeout: 60000 
             });
             
-            // Use proper wait function
-            await new Promise(resolve => setTimeout(resolve, 2000));
+            // Wait for Cloudflare to finish
+            await new Promise(resolve => setTimeout(resolve, 10000));
             
-            // Wait for content to load after Cloudflare challenge
-            await page.waitForSelector('ul.grid.grid-cols-1', { 
-                timeout: 30000,
-                visible: true 
+            // Check if we're still on Cloudflare page
+            const cloudflareDetected = await page.evaluate(() => {
+                return document.querySelector('#challenge-running') !== null;
             });
             
-            const urls = await page.evaluate(() => {
-                const links = document.querySelectorAll('ul.grid.grid-cols-1 a');
-                return Array.from(links, link => link.href);
-            });
-
-            brandUrls.push(...urls);
-            console.log(`Collected ${urls.length} urls for category ${letter}`);
-            
-            if (urls.length === 0) {
-                console.log('No URLs found, checking page content...');
-                const content = await page.content();
-                console.log('Page content:', content.substring(0, 500)); // Log first 500 chars
+            if (cloudflareDetected) {
+                console.log('Cloudflare detected, waiting longer...');
+                await new Promise(resolve => setTimeout(resolve, 20000));
             }
             
-            // Add delay between requests
-            await new Promise(resolve => setTimeout(resolve, 3000));
+            // Try different selectors
+            const selectors = [
+                'ul.grid.grid-cols-1',
+                '.brand-list',
+                'a[href*="/brands/"]'
+            ];
+            
+            let urls = [];
+            for (const selector of selectors) {
+                try {
+                    await page.waitForSelector(selector, { timeout: 5000 });
+                    urls = await page.evaluate((sel) => {
+                        const links = document.querySelectorAll(sel + ' a');
+                        return Array.from(links, link => link.href);
+                    }, selector);
+                    
+                    if (urls.length > 0) break;
+                } catch (e) {
+                    console.log(`Selector ${selector} not found`);
+                }
+            }
+
+            if (urls.length > 0) {
+                brandUrls.push(...urls);
+                console.log(`Collected ${urls.length} urls for category ${letter}`);
+                
+                if (urls.length === 0) {
+                    console.log('No URLs found, logging page content...');
+                    const content = await page.content();
+                    console.log('Page content preview:', content.substring(0, 1000));
+                }
+                
+                // Longer delay between requests
+                await new Promise(resolve => setTimeout(resolve, 30000));
+            }
             
         } catch (error) {
             console.log(`Error collecting URLs for category ${letter}:`, error);
