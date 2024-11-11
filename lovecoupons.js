@@ -1,4 +1,5 @@
 import { Actor } from 'apify';
+import { launchPuppeteer } from 'puppeteer';
 
 async function collectBrandUrls(page) {
     const brandUrls = [];
@@ -132,11 +133,15 @@ async function scrapeBrandDetails(page, brandUrls) {
 async function main() {
     await Actor.init();
     
-    // Changed from browser.launch to Actor.launchPuppeteer
-    const browser = await Actor.launchPuppeteer({
-        stealth: true,
+    // Create proxy configuration
+    const proxyConfiguration = await Actor.createProxyConfiguration();
+    
+    // Launch puppeteer with proxy
+    const browser = await launchPuppeteer({
         useChrome: true,
+        proxyUrl: proxyConfiguration?.newUrl(),
         launchOptions: {
+            headless: true,
             args: [
                 '--disable-dev-shm-usage',
                 '--disable-setuid-sandbox',
