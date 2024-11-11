@@ -1,9 +1,4 @@
 import { Actor } from 'apify';
-import puppeteer from "puppeteer-extra";
-import StealthPlugin from "puppeteer-extra-plugin-stealth";
-
-// Add stealth plugin
-puppeteer.use(StealthPlugin());
 
 async function collectBrandUrls(page) {
     const brandUrls = [];
@@ -22,15 +17,12 @@ async function collectBrandUrls(page) {
                 timeout: 60000 
             });
             
-            // Wait for Cloudflare to finish
+            // Wait for initial load
             await new Promise(resolve => setTimeout(resolve, 10000));
             
-            // Check if we're still on Cloudflare page
-            const cloudflareDetected = await page.evaluate(() => {
-                return document.querySelector('#challenge-running') !== null;
-            });
-            
-            if (cloudflareDetected) {
+            // Check for Cloudflare
+            const content = await page.content();
+            if (content.includes('challenge-running') || content.includes('cloudflare')) {
                 console.log('Cloudflare detected, waiting longer...');
                 await new Promise(resolve => setTimeout(resolve, 20000));
             }
@@ -51,7 +43,10 @@ async function collectBrandUrls(page) {
                         return Array.from(links, link => link.href);
                     }, selector);
                     
-                    if (urls.length > 0) break;
+                    if (urls.length > 0) {
+                        console.log(`Found ${urls.length} URLs using selector: ${selector}`);
+                        break;
+                    }
                 } catch (e) {
                     console.log(`Selector ${selector} not found`);
                 }
@@ -60,16 +55,13 @@ async function collectBrandUrls(page) {
             if (urls.length > 0) {
                 brandUrls.push(...urls);
                 console.log(`Collected ${urls.length} urls for category ${letter}`);
-                
-                if (urls.length === 0) {
-                    console.log('No URLs found, logging page content...');
-                    const content = await page.content();
-                    console.log('Page content preview:', content.substring(0, 1000));
-                }
-                
-                // Longer delay between requests
-                await new Promise(resolve => setTimeout(resolve, 30000));
+            } else {
+                console.log('No URLs found, logging page content...');
+                console.log('Page content preview:', content.substring(0, 1000));
             }
+            
+            // Delay between requests
+            await new Promise(resolve => setTimeout(resolve, 5000));
             
         } catch (error) {
             console.log(`Error collecting URLs for category ${letter}:`, error);
@@ -140,7 +132,7 @@ async function scrapeBrandDetails(page, brandUrls) {
 async function main() {
     await Actor.init();
     
-    const browser = await puppeteer.launch({ 
+    const browser = await browser.launch({ 
         headless: true,
         args: [
             '--disable-dev-shm-usage',
