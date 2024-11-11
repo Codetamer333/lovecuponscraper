@@ -4,47 +4,41 @@ import { CheerioCrawler, RequestList } from 'crawlee';
 async function main() {
     await Actor.init();
 
-    const alphabet = ['0-9', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',
-                     'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'];
+    const alphabet = ['0-9'];
     
     // Create initial requests
     const startUrls = alphabet.map(letter => ({
-        url: `https://www.lovecoupons.ro/brands/${letter === '0-9' ? 'number' : letter}`,
+        url: `https://www.lovecoupons.ro/brands/${letter === '0-9' ? '' : letter}`,
         userData: { label: 'BRAND_LIST' }
     }));
 
     const crawler = new CheerioCrawler({
         requestList: await RequestList.open(null, startUrls),
         maxConcurrency: 1,
+        requestHandlerTimeoutSecs: 30,
+        minDelayBetweenRequestsMillis: 2000,
+
         requestHandler: async ({ $, request, enqueueLinks }) => {
             const { label } = request.userData;
 
             if (label === 'BRAND_LIST') {
                 console.log(`Processing ${request.url}`);
                 
-                // Try different selectors for brand links
-                const selectors = [
-                    'ul.grid.grid-cols-1 a',
-                    '.brand-list a',
-                    'a[href*="/brands/"]'
-                ];
-
-                for (const selector of selectors) {
-                    const links = $(selector).map((_, el) => $(el).attr('href')).get();
-                    if (links.length > 0) {
-                        console.log(`Found ${links.length} brand links using selector: ${selector}`);
-                        
-                        // Queue brand detail pages
-                        await enqueueLinks({
-                            urls: links,
-                            label: 'BRAND_DETAIL',
-                            transformRequestFunction: (req) => {
-                                req.userData.label = 'BRAND_DETAIL';
-                                return req;
-                            }
-                        });
-                        break;
-                    }
+                const selector = 'ul.grid.grid-cols-1.sm\\:grid-cols-2.lg\\:grid-cols-3.gap-3 a';
+                const links = $(selector).map((_, el) => $(el).attr('href')).get();
+                
+                if (links.length > 0) {
+                    console.log(`Found ${links.length} brand links for URL: ${request.url}`);
+                    
+                    await enqueueLinks({
+                        urls: links,
+                        label: 'BRAND_DETAIL',
+                        transformRequestFunction: (req) => {
+                            req.userData.label = 'BRAND_DETAIL';
+                            req.userData.delay = Math.floor(Math.random() * 1000) + 2000;
+                            return req;
+                        }
+                    });
                 }
             }
 
@@ -92,9 +86,14 @@ async function main() {
                 }
             }
         },
+        maxRequestRetries: 3,
+        navigationTimeoutSecs: 30,
         preNavigationHooks: [
             async ({ request }) => {
-                // Add headers to look more like a browser
+                if (request.userData.delay) {
+                    await new Promise(resolve => setTimeout(resolve, request.userData.delay));
+                }
+
                 request.headers = {
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
                     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
