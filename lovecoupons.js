@@ -1,8 +1,8 @@
-import { Actor } from 'apify';
+// import { Actor } from 'apify';
 import puppeteer from "puppeteer";
 import pkg from 'pg';
 import dotenv from 'dotenv';
-await Actor.init(); 
+// await Actor.init(); 
 dotenv.config();	
 const { Client } = pkg; 
 
@@ -167,4 +167,4 @@ async function saveToDatabase(data) {
         await client.end(); 
     }
 })();
-await Actor.exit(); 
+// await Actor.exit(); 
