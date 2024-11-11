@@ -15,6 +15,7 @@ async function main() {
     const crawler = new CheerioCrawler({
         requestList: await RequestList.open(null, startUrls),
         maxConcurrency: 1,
+        maxRequestsPerMinute: 20,
         requestHandlerTimeoutSecs: 30,
         requestsTimeoutSecs: 2,
 
