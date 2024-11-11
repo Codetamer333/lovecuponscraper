@@ -2,7 +2,7 @@ import { Actor } from 'apify';
 import puppeteer from "puppeteer";
 import pkg from 'pg';
 import dotenv from 'dotenv';
-
+await Actor.init(); 
 dotenv.config();	
 const { Client } = pkg; 
 
@@ -145,7 +145,7 @@ async function saveToDatabase(data) {
 }
 
 
-await Actor.init(); 
+
 (async () => {
     const browser = await puppeteer.launch({ headless: true,  args: ['--no-sandbox', '--disable-setuid-sandbox'] });
     const page = await browser.newPage();
