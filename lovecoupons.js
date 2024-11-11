@@ -32,6 +32,10 @@ async function collectBrandUrls(page) {
     for (const letter of alphabet) {
         const url = `${baseURL}${letter === '0-9' ? '' : letter}`;
         await page.goto(url, { waitUntil: 'domcontentloaded' });
+
+        await page.waitForSelector('ul.grid.grid-cols-1.sm\\:grid-cols-2.lg\\:grid-cols-3.gap-3', { timeout: 10000 });
+        const content = await page.content();
+        console.log(content);
         const urls = await page.evaluate(() => {
             const brandContainer = document.querySelector('ul.grid.grid-cols-1.sm\\:grid-cols-2.lg\\:grid-cols-3.gap-3');
             if (brandContainer) {
