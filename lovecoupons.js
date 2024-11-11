@@ -11,11 +11,21 @@ async function collectBrandUrls(page) {
         const url = `${baseURL}${letter === '0-9' ? 'number' : letter}`;
         console.log(`Navigating to: ${url}`);
         
-        await page.goto(url, { waitUntil: 'networkidle0' });
-        await page.waitForTimeout(2000);
-        
         try {
-            await page.waitForSelector('ul.grid.grid-cols-1', { timeout: 5000 });
+            // Navigate to the page and wait for network to be idle
+            await page.goto(url, { 
+                waitUntil: 'networkidle0',
+                timeout: 30000 // Increase timeout to handle Cloudflare
+            });
+            
+            // Use proper wait function
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            // Wait for content to load after Cloudflare challenge
+            await page.waitForSelector('ul.grid.grid-cols-1', { 
+                timeout: 30000,
+                visible: true 
+            });
             
             const urls = await page.evaluate(() => {
                 const links = document.querySelectorAll('ul.grid.grid-cols-1 a');
@@ -26,9 +36,14 @@ async function collectBrandUrls(page) {
             console.log(`Collected ${urls.length} urls for category ${letter}`);
             
             if (urls.length === 0) {
+                console.log('No URLs found, checking page content...');
                 const content = await page.content();
-                console.log('Page content:', content);
+                console.log('Page content:', content.substring(0, 500)); // Log first 500 chars
             }
+            
+            // Add delay between requests
+            await new Promise(resolve => setTimeout(resolve, 3000));
+            
         } catch (error) {
             console.log(`Error collecting URLs for category ${letter}:`, error);
         }
@@ -112,6 +127,7 @@ async function main() {
         const page = await browser.newPage();
         await page.setViewport({ width: 1920, height: 1080 });
         
+        // Set a more realistic user agent
         await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36');
         
         await page.setRequestInterception(true);
