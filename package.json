@@ -14,7 +14,7 @@
     "crawlee": "^3.5.4"
   },
   "scripts": {
-    "start": "node lovecoupon.js"
+    "start": "node lovecoupons.js"
   },
   "author": "Codetamer333",
   "license": "ISC"
