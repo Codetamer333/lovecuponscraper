@@ -1,5 +1,5 @@
 import { Actor } from 'apify';
-import { launchPuppeteer } from 'puppeteer';
+import puppeteer from 'puppeteer';
 
 async function collectBrandUrls(page) {
     const brandUrls = [];
@@ -137,18 +137,15 @@ async function main() {
     const proxyConfiguration = await Actor.createProxyConfiguration();
     
     // Launch puppeteer with proxy
-    const browser = await launchPuppeteer({
-        useChrome: true,
-        proxyUrl: proxyConfiguration?.newUrl(),
-        launchOptions: {
-            headless: true,
-            args: [
-                '--disable-dev-shm-usage',
-                '--disable-setuid-sandbox',
-                '--no-sandbox',
-                '--disable-features=IsolateOrigins,site-per-process',
-            ],
-        },
+    const browser = await puppeteer.launch({
+        headless: true,
+        args: [
+            '--disable-dev-shm-usage',
+            '--disable-setuid-sandbox',
+            '--no-sandbox',
+            '--disable-features=IsolateOrigins,site-per-process',
+            proxyConfiguration?.newUrl() ? `--proxy-server=${proxyConfiguration.newUrl()}` : '',
+        ].filter(Boolean),
     });
     
     try {
