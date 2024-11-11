@@ -1,52 +1,31 @@
-// import { Actor } from 'apify';
+import { Actor } from 'apify';
 import puppeteer from "puppeteer";
-import pkg from 'pg';
-import dotenv from 'dotenv';
-// await Actor.init(); 
-dotenv.config();	
-const { Client } = pkg; 
-
-// Configurația PostgreSQL
-const client = new Client({
-    user: process.env.DB_USER,
-    host: process.env.DB_HOST,
-    database: process.env.DB_DATABASE,
-    password: process.env.DB_PASSWORD,
-    port: process.env.DB_PORT,           
-});
-
-await client.connect(); // Conectare la baza de date
-
-const brandUrls = []; 
-
-function delay(time) {
-    return new Promise(function(resolve) {
-      setTimeout(resolve, time);
-    });
-}
 
 async function collectBrandUrls(page) {
+    const brandUrls = [];
     const alphabet = ['0-9'];
     const baseURL = 'https://www.lovecoupons.ro/brands/';
     
     for (const letter of alphabet) {
         const url = `${baseURL}${letter === '0-9' ? '' : letter}`;
         await page.goto(url, { waitUntil: 'domcontentloaded' });
-        const content = await page.content();
-        console.log(content);
-        const urls = await page.evaluate(() => {
-            const brandContainer = document.querySelector('ul.grid.grid-cols-1.sm\\:grid-cols-2.lg\\:grid-cols-3.gap-3');
-            if (brandContainer) {
-                return Array.from(brandContainer.querySelectorAll('a')).map(link => link.href);
-            }
-            return [];
-        });
+        
+        try {
+            const urls = await page.evaluate(() => {
+                const brandContainer = document.querySelector('ul.grid.grid-cols-1.sm\\:grid-cols-2.lg\\:grid-cols-3.gap-3');
+                if (brandContainer) {
+                    return Array.from(brandContainer.querySelectorAll('a')).map(link => link.href);
+                }
+                return [];
+            });
 
-        brandUrls.push(...urls);
-        console.log(`I have collected ${urls.length} urls for category ${letter.toUpperCase()}`);
+            brandUrls.push(...urls);
+            console.log(`Collected ${urls.length} urls for category ${letter.toUpperCase()}`);
+        } catch (error) {
+            console.log(`Error collecting URLs for category ${letter}:`, error);
+        }
     }
 
-    console.log('All collected urls:', brandUrls);
     return brandUrls;
 }
 
@@ -88,7 +67,7 @@ async function scrapeBrandDetails(page, brandUrls) {
                 return { offersData, orgData };
             });
 
-            results.push({
+            await Actor.pushData({
                 brand: pageData.orgData.name,
                 logo: pageData.orgData.logo,
                 offers: pageData.offersData.map(offer => ({
@@ -98,7 +77,7 @@ async function scrapeBrandDetails(page, brandUrls) {
                     validFrom: offer.validFrom,
                 })),
             });
-            console.log(`Pushed items for:  ${url}`)
+            console.log(`Pushed data to dataset for: ${url}`);
         } catch (error) {
             console.log(`Error scraping ${url}:`, error);
         }
@@ -108,69 +87,36 @@ async function scrapeBrandDetails(page, brandUrls) {
     return results;
 }
 
-async function saveToDatabase(data) {
+async function main() {
+    await Actor.init();
     
-    await client.query(`
-        CREATE TABLE IF NOT EXISTS brands (
-            id SERIAL PRIMARY KEY,
-            brand_name VARCHAR(255),
-            logo VARCHAR(255)
-        );
-    `);
-
-    await client.query(`
-        CREATE TABLE IF NOT EXISTS offers (
-            id SERIAL PRIMARY KEY,
-            brand_id INTEGER REFERENCES brands(id),
-            offer_name VARCHAR(255),
-            url TEXT,
-            description TEXT,
-            valid_from DATE
-        );
-    `);
-
-    for (const brand of data) {
-        const brandResult = await client.query(
-            `INSERT INTO brands (brand_name, logo) VALUES ($1, $2) RETURNING id`,
-            [brand.brand, brand.logo]
-        );
-        const brandId = brandResult.rows[0].id;
-
-        for (const offer of brand.offers) {
-            await client.query(
-                `INSERT INTO offers (brand_id, offer_name, url, description, valid_from) VALUES ($1, $2, $3, $4, $5)`,
-                [brandId, offer.name, offer.url, offer.description, offer.validFrom]
-            );
-        }
-    }
-    console.log("Data saved to PostgreSQL database.");
-}
-
-
-
-(async () => {
-    const browser = await puppeteer.launch({ headless: true,  
-        // args: ['--no-sandbox', '--disable-setuid-sandbox'] 
+    const input = await Actor.getInput() || {};
     
-    
+    const browser = await puppeteer.launch({ 
+        headless: true,
+        args: [
+            '--disable-dev-shm-usage',
+            '--disable-setuid-sandbox',
+            '--no-sandbox',
+        ],
     });
-    const page = await browser.newPage();
-
+    
     try {
+        const page = await browser.newPage();
+        await page.setViewport({ width: 1280, height: 800 });
         
         const brandUrls = await collectBrandUrls(page);
-        console.log(`I have collected a total of ${brandUrls.length} brand links.`);
-
-      
-        const data = await scrapeBrandDetails(page, brandUrls);
-        console.log('Collected data:', data);
-
+        console.log(`Collected a total of ${brandUrls.length} brand links.`);
         
-        await saveToDatabase(data);
+        await scrapeBrandDetails(page, brandUrls);
+        console.log('Scraping completed successfully');
+    } catch (error) {
+        console.error('Actor failed:', error);
+        throw error;
     } finally {
         await browser.close();
-        console.log('Browser closed.');
-        await client.end(); 
+        await Actor.exit();
     }
-})();
-// await Actor.exit(); 
+}
+
+main();
