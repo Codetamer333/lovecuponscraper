@@ -16,7 +16,7 @@ async function main() {
         requestList: await RequestList.open(null, startUrls),
         maxConcurrency: 1,
         requestHandlerTimeoutSecs: 30,
-        minDelayBetweenRequestsMillis: 2000,
+        requestsTimeoutSecs: 2,
 
         requestHandler: async ({ $, request, enqueueLinks }) => {
             const { label } = request.userData;
