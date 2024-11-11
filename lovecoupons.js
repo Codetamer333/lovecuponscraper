@@ -132,34 +132,46 @@ async function scrapeBrandDetails(page, brandUrls) {
 async function main() {
     await Actor.init();
     
-    const browser = await browser.launch({ 
-        headless: true,
-        args: [
-            '--disable-dev-shm-usage',
-            '--disable-setuid-sandbox',
-            '--no-sandbox',
-            '--window-size=1920,1080',
-        ],
+    // Changed from browser.launch to Actor.launchPuppeteer
+    const browser = await Actor.launchPuppeteer({
+        stealth: true,
+        useChrome: true,
+        launchOptions: {
+            args: [
+                '--disable-dev-shm-usage',
+                '--disable-setuid-sandbox',
+                '--no-sandbox',
+                '--disable-features=IsolateOrigins,site-per-process',
+            ],
+        },
     });
     
     try {
         const page = await browser.newPage();
         await page.setViewport({ width: 1920, height: 1080 });
         
-        // Set a more realistic user agent
+        // Set user agent
         await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36');
         
-        await page.setRequestInterception(true);
-        page.on('request', request => {
-            console.log('Request:', request.url());
-            request.continue();
+        // Add browser fingerprinting
+        await page.evaluateOnNewDocument(() => {
+            Object.defineProperty(navigator, 'webdriver', { get: () => false });
+            Object.defineProperty(navigator, 'language', { get: () => 'ro-RO' });
+            Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
         });
+        
+        // Log all console messages
+        page.on('console', msg => console.log('Browser console:', msg.text()));
         
         const brandUrls = await collectBrandUrls(page);
         console.log(`Collected a total of ${brandUrls.length} brand links.`);
         
-        await scrapeBrandDetails(page, brandUrls);
-        console.log('Scraping completed successfully');
+        if (brandUrls.length > 0) {
+            await scrapeBrandDetails(page, brandUrls);
+            console.log('Scraping completed successfully');
+        } else {
+            throw new Error('No brand URLs were collected');
+        }
     } catch (error) {
         console.error('Actor failed:', error);
         throw error;
