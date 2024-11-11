@@ -4,7 +4,7 @@ import { CheerioCrawler, RequestList } from 'crawlee';
 async function main() {
     await Actor.init();
 
-    const alphabet = ['0-9'];
+    const alphabet = ['0-9','a'];
     
     // Create initial requests
     const startUrls = alphabet.map(letter => ({
@@ -24,7 +24,8 @@ async function main() {
             if (label === 'BRAND_LIST') {
                 console.log(`Processing ${request.url}`);
                 
-                const selector = 'ul.grid.grid-cols-1.sm\\:grid-cols-2.lg\\:grid-cols-3.gap-3 a';
+               // const selector = 'ul.grid.grid-cols-1.sm\\:grid-cols-2.lg\\:grid-cols-3.gap-3 a';
+                const selector = 'ul.grid.grid-cols-1 a';
                 const links = $(selector).map((_, el) => $(el).attr('href')).get();
                 
                 if (links.length > 0) {
