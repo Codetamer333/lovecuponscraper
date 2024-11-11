@@ -17,7 +17,6 @@ async function main() {
         maxConcurrency: 1,
         maxRequestsPerMinute: 20,
         requestHandlerTimeoutSecs: 30,
-        requestsTimeoutSecs: 2,
 
         requestHandler: async ({ $, request, enqueueLinks }) => {
             const { label } = request.userData;
