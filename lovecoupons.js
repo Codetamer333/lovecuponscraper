@@ -54,7 +54,8 @@ async function main() {
                             const offerData = {
                                 name: item.name,
                                 description: item.description,
-                                url: item.url
+                                url: item.url,
+                                code: null
                             };
 
                             const isCoupon = $('article[data-id="' + item.identifier + '"] span.block.w-full.mt-2').text().trim() === 'Cupon';
@@ -66,10 +67,25 @@ async function main() {
                                 
                                 if (codeButton.length) {
                                     console.log(`Found code button for: ${offerData.name}`);
-                                    const codeDiv = codeButton.closest('.OutlinkCta').find('.border-2.border-cta-500.bg-white.text-black');
-                                    if (codeDiv.length) {
-                                        offerData.code = codeDiv.text().trim();
-                                        console.log(`Found code: ${offerData.code}`);
+                                    
+                                    try {
+                                        const offerUrl = $('article[data-id="' + item.identifier + '"]').attr('data-out');
+                                        if (offerUrl) {
+                                            const fullUrl = `https://www.lovecoupons.ro${offerUrl}`;
+                                            console.log(`Accessing offer URL: ${fullUrl}`);
+                                            
+                                            const response = await fetch(fullUrl);
+                                            const html = await response.text();
+                                            const $couponPage = cheerio.load(html);
+                                            
+                                            const couponInput = $couponPage('input[id^="coupon-"]');
+                                            if (couponInput.length) {
+                                                offerData.code = couponInput.attr('value');
+                                                console.log(`Found coupon code: ${offerData.code}`);
+                                            }
+                                        }
+                                    } catch (error) {
+                                        console.error(`Error fetching coupon code for ${offerData.name}:`, error.message);
                                     }
                                 }
                             }
