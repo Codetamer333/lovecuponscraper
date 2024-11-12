@@ -59,21 +59,30 @@ async function main() {
                                 couponCode: null
                             };
 
-                            // Check if this offer has a coupon button
+                            // First check if this offer has a coupon button
                             if (item.item?.url) {
                                 try {
-                                    // Visit the offer page to get the coupon code
                                     const response = await fetch(item.item.url);
                                     const html = await response.text();
                                     const $offer = cheerio.load(html);
                                     
-                                    // Look for the coupon code input
-                                    const couponInput = $offer('input[id^="coupon-"]');
-                                    if (couponInput.length > 0) {
-                                        offerData.couponCode = couponInput.attr('value');
+                                    // Check if the "Obțineți codul" button exists
+                                    const hasButton = $offer('span:contains("Obțineți codul")').length > 0;
+                                    
+                                    if (hasButton) {
+                                        // If button exists, visit the URL from offerData.url to get the code
+                                        const codePageResponse = await fetch(offerData.url);
+                                        const codePageHtml = await codePageResponse.text();
+                                        const $codePage = cheerio.load(codePageHtml);
+                                        
+                                        // Extract the coupon code from the input element on the new page
+                                        const couponInput = $codePage('input[id^="coupon-"]');
+                                        if (couponInput.length > 0) {
+                                            offerData.couponCode = couponInput.attr('value');
+                                        }
                                     }
                                 } catch (error) {
-                                    console.error(`Error fetching coupon code for ${item.item.url}:`, error);
+                                    console.error(`Error processing offer at ${item.item.url}:`, error);
                                 }
                             }
 
