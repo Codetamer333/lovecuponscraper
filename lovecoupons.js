@@ -50,44 +50,28 @@ async function main() {
                     if (script['@type'] === 'ItemList') {
                         brandData.offers = await Promise.all(script.itemListElement?.map(async (item, index) => {
                             await new Promise(resolve => setTimeout(resolve, index * 2000));
-
+                            
                             const offerData = {
-                                name: item.item?.name,
-                                description: item.item?.description,
-                                validFrom: item.item?.validFrom,
-                                url: item.item?.url,
-                                couponCode: null
+                                name: item.name,
+                                description: item.description,
+                                url: item.url
                             };
 
-                            const offerSection = $(`div:contains("${item.item?.name}")`).closest('div.flex-shrink-0');
-                            const hasButton = offerSection.find('span:contains("Obțineți codul")').length > 0;
-
-                            if (hasButton && offerData.url) {
-                                try {
-                                    console.log(`Found coupon button for offer: ${offerData.name}. Fetching code from ${offerData.url}`);
-                                    
-                                    await new Promise(resolve => setTimeout(resolve, 2000));
-
-                                    const codePageResponse = await fetch(offerData.url, {
-                                        headers: {
-                                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
-                                            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-                                            'Accept-Language': 'ro-RO,ro;q=0.9,en-US;q=0.8,en;q=0.7'
-                                        }
-                                    });
-                                    const codePageHtml = await codePageResponse.text();
-                                    const $codePage = cheerio.load(codePageHtml);
-                                    
-                                    const couponInput = $codePage('input[id^="coupon-"]');
-                                    if (couponInput.length > 0) {
-                                        offerData.couponCode = couponInput.attr('value');
-                                        console.log(`Found coupon code for ${offerData.name}: ${offerData.couponCode}`);
+                            const isCoupon = $('article[data-id="' + item.identifier + '"] span.block.w-full.mt-2').text().trim() === 'Cupon';
+                            
+                            if (isCoupon) {
+                                console.log(`Found coupon offer: ${offerData.name}`);
+                                
+                                const codeButton = $('article[data-id="' + item.identifier + '"] .OutlinkCta span:contains("Obțineți codul")');
+                                
+                                if (codeButton.length) {
+                                    console.log(`Found code button for: ${offerData.name}`);
+                                    const codeDiv = codeButton.closest('.OutlinkCta').find('.border-2.border-cta-500.bg-white.text-black');
+                                    if (codeDiv.length) {
+                                        offerData.code = codeDiv.text().trim();
+                                        console.log(`Found code: ${offerData.code}`);
                                     }
-                                } catch (error) {
-                                    console.error(`Error fetching coupon code for ${offerData.name}:`, error.message);
                                 }
-                            } else {
-                                console.log(`No coupon button found for offer: ${offerData.name}`);
                             }
 
                             return offerData;
