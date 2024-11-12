@@ -15,8 +15,8 @@ async function main() {
     const crawler = new CheerioCrawler({
         requestList: await RequestList.open(null, startUrls),
         maxConcurrency: 1,
-        maxRequestsPerMinute: 20,
-        requestHandlerTimeoutSecs: 30,
+        maxRequestsPerMinute: 10,
+        requestHandlerTimeoutSecs: 60,
 
         requestHandler: async ({ $, request, enqueueLinks }) => {
             const { label } = request.userData;
@@ -24,7 +24,6 @@ async function main() {
             if (label === 'BRAND_DETAIL') {
                 console.log(`Scraping brand details from ${request.url}`);
                 
-                // Extract JSON-LD data
                 const jsonLdScripts = $('script[type="application/ld+json"]')
                     .map((_, el) => {
                         try {
@@ -43,14 +42,15 @@ async function main() {
                     offers: []
                 };
 
-                // Process JSON-LD data
                 for (const script of jsonLdScripts) {
                     if (script['@type'] === 'Organization') {
                         brandData.name = script.name;
                         brandData.logo = script.logo;
                     }
                     if (script['@type'] === 'ItemList') {
-                        brandData.offers = await Promise.all(script.itemListElement?.map(async item => {
+                        brandData.offers = await Promise.all(script.itemListElement?.map(async (item, index) => {
+                            await new Promise(resolve => setTimeout(resolve, index * 2000));
+
                             const offerData = {
                                 name: item.item?.name,
                                 description: item.item?.description,
@@ -59,23 +59,35 @@ async function main() {
                                 couponCode: null
                             };
 
-                            // First check if this offer has a coupon button
                             if (item.item?.url) {
                                 try {
-                                    const response = await fetch(item.item.url);
+                                    console.log(`Checking for coupon button at ${item.item.url}`);
+                                    const response = await fetch(item.item.url, {
+                                        headers: {
+                                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+                                            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                                            'Accept-Language': 'ro-RO,ro;q=0.9,en-US;q=0.8,en;q=0.7'
+                                        }
+                                    });
                                     const html = await response.text();
                                     const $offer = cheerio.load(html);
                                     
-                                    // Check if the "Obțineți codul" button exists
                                     const hasButton = $offer('span:contains("Obțineți codul")').length > 0;
                                     
                                     if (hasButton) {
-                                        // If button exists, visit the URL from offerData.url to get the code
-                                        const codePageResponse = await fetch(offerData.url);
+                                        await new Promise(resolve => setTimeout(resolve, 2000));
+
+                                        console.log(`Fetching coupon code from ${offerData.url}`);
+                                        const codePageResponse = await fetch(offerData.url, {
+                                            headers: {
+                                                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+                                                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                                                'Accept-Language': 'ro-RO,ro;q=0.9,en-US;q=0.8,en;q=0.7'
+                                            }
+                                        });
                                         const codePageHtml = await codePageResponse.text();
                                         const $codePage = cheerio.load(codePageHtml);
                                         
-                                        // Extract the coupon code from the input element on the new page
                                         const couponInput = $codePage('input[id^="coupon-"]');
                                         if (couponInput.length > 0) {
                                             offerData.couponCode = couponInput.attr('value');
