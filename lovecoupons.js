@@ -1,14 +1,15 @@
 import { Actor } from 'apify';
 import { CheerioCrawler, RequestList } from 'crawlee';
+import cheerio from 'cheerio';
 
 async function main() {
     await Actor.init();
 
-    // Get input URLs from Apify input
+    // Get input URLs from Apify input - now expecting direct brand URLs
     const input = await Actor.getInput();
     const startUrls = input.urls.map(url => ({
         url,
-        userData: { label: 'BRAND_LIST' }
+        userData: { label: 'BRAND_DETAIL' }
     }));
 
     const crawler = new CheerioCrawler({
@@ -19,28 +20,6 @@ async function main() {
 
         requestHandler: async ({ $, request, enqueueLinks }) => {
             const { label } = request.userData;
-
-            if (label === 'BRAND_LIST') {
-                console.log(`Processing ${request.url}`);
-                
-                const selector = 'ul.grid.grid-cols-1.sm\\:grid-cols-2.lg\\:grid-cols-3.gap-3 > li > a';
-                //const selector = 'ul.grid.grid-cols-1 a';
-                const links = $(selector).map((_, el) => $(el).attr('href')).get();
-                
-                if (links.length > 0) {
-                    console.log(`Found ${links.length} brand links for URL: ${request.url}`);
-                    
-                    await enqueueLinks({
-                        urls: links,
-                        label: 'BRAND_DETAIL',
-                        transformRequestFunction: (req) => {
-                            req.userData.label = 'BRAND_DETAIL';
-                            req.userData.delay = Math.floor(Math.random() * 1000) + 2000;
-                            return req;
-                        }
-                    });
-                }
-            }
 
             if (label === 'BRAND_DETAIL') {
                 console.log(`Scraping brand details from ${request.url}`);
@@ -71,11 +50,34 @@ async function main() {
                         brandData.logo = script.logo;
                     }
                     if (script['@type'] === 'ItemList') {
-                        brandData.offers = script.itemListElement?.map(item => ({
-                            name: item.item?.name,
-                            description: item.item?.description,
-                            validFrom: item.item?.validFrom,
-                            url: item.item?.url
+                        brandData.offers = await Promise.all(script.itemListElement?.map(async item => {
+                            const offerData = {
+                                name: item.item?.name,
+                                description: item.item?.description,
+                                validFrom: item.item?.validFrom,
+                                url: item.item?.url,
+                                couponCode: null
+                            };
+
+                            // Check if this offer has a coupon button
+                            if (item.item?.url) {
+                                try {
+                                    // Visit the offer page to get the coupon code
+                                    const response = await fetch(item.item.url);
+                                    const html = await response.text();
+                                    const $offer = cheerio.load(html);
+                                    
+                                    // Look for the coupon code input
+                                    const couponInput = $offer('input[id^="coupon-"]');
+                                    if (couponInput.length > 0) {
+                                        offerData.couponCode = couponInput.attr('value');
+                                    }
+                                } catch (error) {
+                                    console.error(`Error fetching coupon code for ${item.item.url}:`, error);
+                                }
+                            }
+
+                            return offerData;
                         })) || [];
                     }
                 }
