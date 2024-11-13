@@ -59,8 +59,9 @@ async function main() {
                                 couponCode: null
                             };
 
-                            const offerSection = $(`div:contains("${item.item?.name}")`).closest('div.flex-shrink-0');
-                            const hasButton = offerSection.find('span:contains("Obțineți codul")').length > 0;
+                            const offerTitle = $('h3.text-lg').filter((_, el) => $(el).text().trim() === item.item?.name);
+                            const offerArticle = offerTitle.closest('article.Offer');
+                            const hasButton = offerArticle.find('span:contains("Obțineți codul")').length > 0;
 
                             if (hasButton && offerData.url) {
                                 try {
