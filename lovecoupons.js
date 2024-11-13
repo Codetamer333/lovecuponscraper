@@ -59,12 +59,24 @@ async function main() {
                                 couponCode: null
                             };
 
-                            const offerTitle = $('h3.text-lg').filter((_, el) => $(el).text().trim() === item.item?.name);
-                            console.log(offerTitle);
+                            console.log('Looking for offer with name:', item.item?.name);
+
+                            $('h3.text-lg').each((_, el) => {
+                                console.log('Found h3 title:', $(el).text().trim());
+                            });
+
+                            const offerTitle = $('h3.text-lg').filter((_, el) => {
+                                const titleText = $(el).text().trim();
+                                console.log('Comparing:', titleText, 'with:', item.item?.name);
+                                return titleText === item.item?.name;
+                            });
+                            console.log('Matched offer title:', offerTitle.length > 0 ? 'found' : 'not found');
+
                             const offerArticle = offerTitle.closest('article.Offer');
-                            console.log(offerArticle);
+                            console.log('Found offer article:', offerArticle.length > 0 ? 'yes' : 'no');
+
                             const hasButton = offerArticle.find('span:contains("Obțineți codul")').length > 0;
-                            console.log(hasButton);
+                            console.log('Has button:', hasButton);
 
                             if (hasButton && offerData.url) {
                                 try {
