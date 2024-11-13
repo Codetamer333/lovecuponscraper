@@ -50,7 +50,7 @@ async function main() {
                     if (script['@type'] === 'ItemList') {
                         brandData.offers = await Promise.all(script.itemListElement?.map(async (item, index) => {
                             await new Promise(resolve => setTimeout(resolve, index * 2000));
-
+                            
                             const offerData = {
                                 name: item.name,
                                 description: item.description,
@@ -62,26 +62,27 @@ async function main() {
                             };
 
                             try {
-                                const offerElement = Array.from(document.querySelectorAll('.Offer')).find(el => {
-                                    const titleEl = el.querySelector('h3');
-                                    return titleEl && titleEl.textContent.trim() === item.name;
-                                });
+                                const offerElement = $('.Offer').filter((_, el) => {
+                                    const titleEl = $(el).find('h3');
+                                    return titleEl.text().trim() === item.name;
+                                }).first();
 
-                                if (offerElement) {
-                                    const codeButton = offerElement.querySelector('span:has-text("Obțineți codul")');
+                                if (offerElement.length) {
+                                    const codeButton = offerElement.find('span:contains("Obțineți codul")');
                                     
-                                    if (codeButton) {
-                                        const offerUrl = offerElement.getAttribute('data-out');
+                                    if (codeButton.length) {
+                                        const offerUrl = offerElement.attr('data-out');
                                         
                                         if (offerUrl) {
-                                            const response = await fetch(offerUrl);
-                                            const html = await response.text();
-                                            const parser = new DOMParser();
-                                            const doc = parser.parseFromString(html, 'text/html');
-                                            
-                                            const codeElement = doc.querySelector('.border-2.border-cta-500.bg-white.text-black.text-right');
-                                            if (codeElement) {
-                                                offerData.couponCode = codeElement.textContent.trim();
+                                            const response = await context.crawler.requestQueue.addRequest({
+                                                url: offerUrl,
+                                                userData: { label: 'COUPON_PAGE' }
+                                            });
+
+                                            if (response.wasAlreadyPresent) {
+                                                console.log(`Coupon URL ${offerUrl} already queued`);
+                                            } else {
+                                                console.log(`Queued coupon URL: ${offerUrl}`);
                                             }
                                         }
                                     }
@@ -98,6 +99,14 @@ async function main() {
                 if (brandData.name || brandData.offers.length > 0) {
                     await Actor.pushData(brandData);
                     console.log(`Saved data for: ${brandData.name || request.url}`);
+                }
+            }
+
+            if (label === 'COUPON_PAGE') {
+                const codeElement = $('.border-2.border-cta-500.bg-white.text-black.text-right');
+                if (codeElement.length) {
+                    const code = codeElement.text().trim();
+                    console.log(`Found coupon code: ${code}`);
                 }
             }
         },
