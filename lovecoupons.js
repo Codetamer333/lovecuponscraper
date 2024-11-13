@@ -82,10 +82,17 @@ async function main() {
                                 
                                 // Search for the button within this specific article
                                 const $article = $(matchingArticle);
-                                const hasButton = $article.find('span').filter((_, span) => 
-                                    $(span).text().trim() === 'Obțineți codul'
-                                ).length > 0;
                                 
+                                // Log the entire HTML structure of the article for debugging
+                                console.log('Article HTML:', $article.html());
+                                
+                                // Look for the button using the exact structure
+                                const button = $article.find('.OutlinkCta span:contains("Obțineți codul")').first();
+                                const hasButton = button.length > 0;
+                                
+                                // Additional debugging
+                                console.log('All spans in article:', $article.find('span').map((_, el) => $(el).text()).get());
+                                console.log('Button element found:', button.length > 0 ? button.html() : 'not found');
                                 console.log('Button found:', hasButton);
 
                                 if (hasButton && offerData.url) {
