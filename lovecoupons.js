@@ -90,24 +90,70 @@ async function main() {
                                         
                                         const page = await browser.newPage();
                                         
+                                        // Enable request interception for debugging
+                                        await page.setRequestInterception(true);
+                                        page.on('request', request => {
+                                            console.log('Request URL:', request.url());
+                                            request.continue();
+                                        });
+                                        
                                         // Set viewport and user agent
                                         await page.setViewport({ width: 1280, height: 800 });
                                         await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36');
                                         
                                         // Navigate to the offer URL
-                                        await page.goto(offerData.url, { waitUntil: 'networkidle0' });
+                                        console.log('Navigating to:', offerData.url);
+                                        await page.goto(offerData.url, { 
+                                            waitUntil: 'networkidle0',
+                                            timeout: 30000 
+                                        });
                                         
-                                        // Click the "Get Code" button
-                                        await page.waitForSelector('.OutlinkCta span:contains("Obțineți codul")', { timeout: 5000 });
-                                        await page.click('.OutlinkCta span:contains("Obțineți codul")');
+                                        // Take a screenshot before clicking
+                                        await page.screenshot({ path: 'before-click.png' });
                                         
-                                        // Wait for the coupon code to appear
-                                        await page.waitForSelector('.RevealCoupon input[type="text"]', { timeout: 5000 });
+                                        // Wait for the button and click it
+                                        console.log('Waiting for button...');
+                                        await page.waitForSelector('button.OutlinkCta', { 
+                                            visible: true,
+                                            timeout: 10000 
+                                        });
+                                        
+                                        // Get all buttons and their text content
+                                        const buttons = await page.$$eval('button', buttons => 
+                                            buttons.map(b => ({
+                                                text: b.innerText,
+                                                class: b.className
+                                            }))
+                                        );
+                                        console.log('Available buttons:', buttons);
+                                        
+                                        // Click the button
+                                        await page.click('button.OutlinkCta');
+                                        console.log('Clicked the button');
+                                        
+                                        // Wait for the modal or reveal element
+                                        await page.waitForSelector('.RevealCoupon', { 
+                                            visible: true,
+                                            timeout: 10000 
+                                        });
+                                        
+                                        // Take a screenshot after clicking
+                                        await page.screenshot({ path: 'after-click.png' });
                                         
                                         // Get the coupon code
                                         const couponCode = await page.evaluate(() => {
                                             const input = document.querySelector('.RevealCoupon input[type="text"]');
-                                            return input ? input.value : null;
+                                            if (input) {
+                                                console.log('Found input with value:', input.value);
+                                                return input.value;
+                                            }
+                                            // Try getting it from the input directly
+                                            const directInput = document.querySelector('input[id^="coupon-"]');
+                                            if (directInput) {
+                                                console.log('Found direct input with value:', directInput.value);
+                                                return directInput.value;
+                                            }
+                                            return null;
                                         });
                                         
                                         if (couponCode) {
