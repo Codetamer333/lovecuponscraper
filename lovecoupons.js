@@ -67,11 +67,15 @@ async function main() {
                                 console.log('Found article with title:', title);
                             });
 
-                            // Try a different approach to find the matching article
+                            // Find the specific article that contains this offer
                             let matchingArticle = null;
                             $('article.Offer').each((_, article) => {
                                 const articleTitle = $(article).find('h3.text-lg').text().trim();
-                                if (articleTitle === offerData.name) {
+                                console.log('Comparing:', articleTitle, 'with:', offerData.name);
+                                
+                                // Remove "Verificat" prefix if it exists and compare
+                                const normalizedArticleTitle = articleTitle.replace('Verificat ', '');
+                                if (normalizedArticleTitle === offerData.name) {
                                     matchingArticle = article;
                                     return false; // Break the loop when found
                                 }
