@@ -83,7 +83,6 @@ async function main() {
                                         await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36');
                                         
                                         // Navigate to the page
-                                        console.log('Navigating to URL:', offerData.url);
                                         await page.goto(offerData.url, { waitUntil: 'networkidle0' });
                                         
                                         // Wait for and click the button
@@ -114,7 +113,7 @@ async function main() {
                                         console.error('Error fetching coupon:', error.message);
                                     }
                                 } else {
-                                    console.log('No coupon code found');
+                                    console.log('No coupon code found only offer:', offerData.name);
                                 }
                             } else {
                                 console.log('No matching article found for:', offerData.name);
@@ -144,8 +143,7 @@ async function main() {
                         };
 
                         if (button.length > 0) {
-                            // Process offer with button
-                            // ... rest of the code for fetching coupon ...
+                        
                         }
                         
                         brandData.offers.push(offerData);
