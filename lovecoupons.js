@@ -50,45 +50,44 @@ async function main() {
                     if (script['@type'] === 'ItemList') {
                         brandData.offers = await Promise.all(script.itemListElement?.map(async (item, index) => {
                             await new Promise(resolve => setTimeout(resolve, index * 2000));
-                            
+
                             const offerData = {
-                                name: item.name,
-                                description: item.description,
-                                url: item.url,
-                                price: item.price,
-                                priceCurrency: item.priceCurrency,
-                                availability: item.availability,
+                                name: item.item?.name,
+                                description: item.item?.description,
+                                validFrom: item.item?.validFrom,
+                                url: item.item?.url,
                                 couponCode: null
                             };
 
-                            try {
-                                const offerElement = $('.Offer').filter((_, el) => {
-                                    const titleEl = $(el).find('h3');
-                                    return titleEl.text().trim() === item.name;
-                                }).first();
+                            const offerSection = $(`div:contains("${item.item?.name}")`).closest('div.flex-shrink-0');
+                            const hasButton = offerSection.find('span:contains("Obțineți codul")').length > 0;
 
-                                if (offerElement.length) {
-                                    const codeButton = offerElement.find('span:contains("Obțineți codul")');
+                            if (hasButton && offerData.url) {
+                                try {
+                                    console.log(`Found coupon button for offer: ${offerData.name}. Fetching code from ${offerData.url}`);
                                     
-                                    if (codeButton.length) {
-                                        const offerUrl = offerElement.attr('data-out');
-                                        
-                                        if (offerUrl) {
-                                            const response = await context.crawler.requestQueue.addRequest({
-                                                url: offerUrl,
-                                                userData: { label: 'COUPON_PAGE' }
-                                            });
+                                    await new Promise(resolve => setTimeout(resolve, 2000));
 
-                                            if (response.wasAlreadyPresent) {
-                                                console.log(`Coupon URL ${offerUrl} already queued`);
-                                            } else {
-                                                console.log(`Queued coupon URL: ${offerUrl}`);
-                                            }
+                                    const codePageResponse = await fetch(offerData.url, {
+                                        headers: {
+                                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+                                            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                                            'Accept-Language': 'ro-RO,ro;q=0.9,en-US;q=0.8,en;q=0.7'
                                         }
+                                    });
+                                    const codePageHtml = await codePageResponse.text();
+                                    const $codePage = cheerio.load(codePageHtml);
+                                    
+                                    const couponInput = $codePage('input[id^="coupon-"]');
+                                    if (couponInput.length > 0) {
+                                        offerData.couponCode = couponInput.attr('value');
+                                        console.log(`Found coupon code for ${offerData.name}: ${offerData.couponCode}`);
                                     }
+                                } catch (error) {
+                                    console.error(`Error fetching coupon code for ${offerData.name}:`, error.message);
                                 }
-                            } catch (error) {
-                                console.error(`Error processing offer ${item.name}:`, error);
+                            } else {
+                                console.log(`No coupon button found for offer: ${offerData.name}`);
                             }
 
                             return offerData;
@@ -99,14 +98,6 @@ async function main() {
                 if (brandData.name || brandData.offers.length > 0) {
                     await Actor.pushData(brandData);
                     console.log(`Saved data for: ${brandData.name || request.url}`);
-                }
-            }
-
-            if (label === 'COUPON_PAGE') {
-                const codeElement = $('.border-2.border-cta-500.bg-white.text-black.text-right');
-                if (codeElement.length) {
-                    const code = codeElement.text().trim();
-                    console.log(`Found coupon code: ${code}`);
                 }
             }
         },
