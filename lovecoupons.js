@@ -90,79 +90,53 @@ async function main() {
                                 if (hasButton && offerData.url) {
                                     try {
                                         console.log(`Found button for offer: ${offerData.name}`);
-                                        console.log(`Fetching coupon from URL: ${offerData.url}`);
+                                        
+                                        // Extract the offer ID from the URL
+                                        const offerId = offerData.url.split('#r-')[1];
+                                        if (!offerId) {
+                                            throw new Error('Could not extract offer ID from URL');
+                                        }
+
+                                        console.log(`Fetching coupon for offer ID: ${offerId}`);
                                         
                                         // Add delay before fetching
                                         await new Promise(resolve => setTimeout(resolve, 2000));
 
-                                        // Enhanced headers and fetch options
-                                        const response = await fetch(offerData.url, {
-                                            method: 'GET',
+                                        // Call the reveal coupon API endpoint
+                                        const response = await fetch('https://www.lovecoupons.ro/api/reveal-coupon', {
+                                            method: 'POST',
                                             headers: {
+                                                'Content-Type': 'application/json',
+                                                'Accept': 'application/json',
                                                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
-                                                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
-                                                'Accept-Language': 'ro-RO,ro;q=0.9,en-US;q=0.8,en;q=0.7',
-                                                'Accept-Encoding': 'gzip, deflate, br',
-                                                'Connection': 'keep-alive',
-                                                'Upgrade-Insecure-Requests': '1',
-                                                'Sec-Fetch-Dest': 'document',
-                                                'Sec-Fetch-Mode': 'navigate',
-                                                'Sec-Fetch-Site': 'none',
-                                                'Sec-Fetch-User': '?1',
-                                                'Cache-Control': 'max-age=0',
-                                                'Referer': 'https://www.lovecoupons.ro/',
+                                                'Origin': 'https://www.lovecoupons.ro',
+                                                'Referer': 'https://www.lovecoupons.ro/3d-printer-accessories',
+                                                'X-Requested-With': 'XMLHttpRequest'
                                             },
-                                            redirect: 'follow',
-                                            follow: 20,
-                                            timeout: 30000,
-                                            compress: true,
-                                            credentials: 'include'
+                                            body: JSON.stringify({
+                                                id: offerId
+                                            })
                                         });
 
                                         if (!response.ok) {
-                                            throw new Error(`HTTP error! status: ${response.status}`);
+                                            throw new Error(`API error! status: ${response.status}`);
                                         }
 
-                                        const html = await response.text();
-                                        console.log('Response URL:', response.url);
-                                        console.log('Response status:', response.status);
-                                        
-                                        // Check if we got the Cloudflare page
-                                        if (html.includes('Just a moment...')) {
-                                            console.log('Got Cloudflare protection page');
-                                            throw new Error('Cloudflare protection detected');
-                                        }
+                                        const data = await response.json();
+                                        console.log('API Response:', data);
 
-                                        const $codePage = cheerio.load(html);
-                                        
-                                        // Try multiple selectors for the coupon code
-                                        let couponCode = null;
-                                        
-                                        // Try the RevealCoupon input
-                                        const revealCouponInput = $codePage('.RevealCoupon input[type="text"]').first();
-                                        if (revealCouponInput.length > 0) {
-                                            couponCode = revealCouponInput.val() || revealCouponInput.attr('value');
-                                        }
-                                        
-                                        // Try the direct coupon input
-                                        if (!couponCode) {
-                                            const directCouponInput = $codePage('input[id^="coupon-"]').first();
-                                            if (directCouponInput.length > 0) {
-                                                couponCode = directCouponInput.val() || directCouponInput.attr('value');
-                                            }
-                                        }
-
-                                        if (couponCode) {
-                                            offerData.couponCode = couponCode;
-                                            console.log(`Successfully found coupon code: ${couponCode}`);
+                                        if (data.code) {
+                                            offerData.couponCode = data.code;
+                                            console.log(`Successfully found coupon code: ${data.code}`);
                                         } else {
-                                            console.log('No coupon input found on page');
-                                            console.log('Page title:', $codePage('title').text());
-                                            console.log('Available inputs:', $codePage('input').length);
+                                            console.log('No coupon code in API response');
                                         }
 
                                     } catch (error) {
                                         console.error('Error fetching coupon:', error.message);
+                                        if (error.response) {
+                                            console.error('Error response:', await error.response.text());
+                                        }
                                     }
                                 } else {
                                     console.log('No button found or no URL available');
