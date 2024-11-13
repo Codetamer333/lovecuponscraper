@@ -61,49 +61,69 @@ async function main() {
 
                             console.log('Looking for offer with name:', offerData.name);
 
-                            // Find the specific article that contains this offer
-                            const offerArticle = $('article.Offer').filter((_, article) => {
-                                const articleTitle = $(article).find('h3.text-lg').text().trim();
-                              // console.log('Article title found:', articleTitle);
-                                return articleTitle === offerData.name;
+                            // First log all articles and their titles for debugging
+                            $('article.Offer').each((_, article) => {
+                                const title = $(article).find('h3.text-lg').text().trim();
+                                console.log('Found article with title:', title);
                             });
-                            console.log(offerArticle);
-                            if (offerArticle.length > 0) {
-                                console.log('Found matching article');
-                                // Now look for the button only within this specific article
-                                const button = offerArticle.find('.OutlinkCta span:contains("Obțineți codul")');
-                                const hasButton = button.length > 0;
-                                console.log('Has button:', hasButton);
+
+                            // Try a different approach to find the matching article
+                            let matchingArticle = null;
+                            $('article.Offer').each((_, article) => {
+                                const articleTitle = $(article).find('h3.text-lg').text().trim();
+                                if (articleTitle === offerData.name) {
+                                    matchingArticle = article;
+                                    return false; // Break the loop when found
+                                }
+                            });
+
+                            if (matchingArticle) {
+                                console.log('Found matching article for:', offerData.name);
+                                
+                                // Search for the button within this specific article
+                                const $article = $(matchingArticle);
+                                const hasButton = $article.find('span').filter((_, span) => 
+                                    $(span).text().trim() === 'Obțineți codul'
+                                ).length > 0;
+                                
+                                console.log('Button found:', hasButton);
 
                                 if (hasButton && offerData.url) {
                                     try {
-                                        console.log(`Found coupon button for offer: ${offerData.name}. Fetching code from ${offerData.url}`);
+                                        console.log(`Found button for offer: ${offerData.name}`);
+                                        console.log(`Fetching coupon from URL: ${offerData.url}`);
                                         
+                                        // Add delay before fetching
                                         await new Promise(resolve => setTimeout(resolve, 2000));
 
-                                        const codePageResponse = await fetch(offerData.url, {
+                                        // Fetch the coupon page
+                                        const response = await fetch(offerData.url, {
                                             headers: {
                                                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
                                                 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
                                                 'Accept-Language': 'ro-RO,ro;q=0.9,en-US;q=0.8,en;q=0.7'
                                             }
                                         });
-                                        const codePageHtml = await codePageResponse.text();
-                                        const $codePage = cheerio.load(codePageHtml);
+
+                                        const html = await response.text();
+                                        const $codePage = cheerio.load(html);
                                         
+                                        // Look for the coupon input
                                         const couponInput = $codePage('input[id^="coupon-"]');
                                         if (couponInput.length > 0) {
                                             offerData.couponCode = couponInput.attr('value');
-                                            console.log(`Found coupon code for ${offerData.name}: ${offerData.couponCode}`);
+                                            console.log(`Successfully found coupon code: ${offerData.couponCode}`);
+                                        } else {
+                                            console.log('No coupon input found on page');
                                         }
                                     } catch (error) {
-                                        console.error(`Error fetching coupon code for ${offerData.name}:`, error.message);
+                                        console.error('Error fetching coupon:', error.message);
                                     }
                                 } else {
-                                    console.log(`No coupon button found for offer: ${offerData.name}`);
+                                    console.log('No button found or no URL available');
                                 }
                             } else {
-                                console.log(`No matching article found for offer: ${offerData.name}`);
+                                console.log('No matching article found for:', offerData.name);
                             }
 
                             return offerData;
