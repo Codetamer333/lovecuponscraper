@@ -75,7 +75,7 @@ async function main() {
                             const offerArticle = offerTitle.closest('article.Offer');
                             console.log('Found offer article:', offerArticle.length > 0 ? 'yes' : 'no');
 
-                            const hasButton = offerArticle.find('span:contains("Obțineți codul")').length > 0;
+                            const hasButton = offerArticle.find('span:contains("Obțineți codul")').closest('.OutlinkCta').length > 0;
                             console.log('Has button:', hasButton);
 
                             if (hasButton && offerData.url) {
