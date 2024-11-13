@@ -82,18 +82,14 @@ async function main() {
                                     try {
                                         console.log(`Found button for offer: ${offerData.name}`);
                                         
-                                        // Launch Puppeteer with additional options
+                                        // Launch Puppeteer
                                         const browser = await puppeteer.launch({
                                             headless: true,
-                                            args: [
-                                                '--no-sandbox',
-                                                '--disable-setuid-sandbox',
-                                                '--disable-web-security',
-                                                '--disable-features=IsolateOrigins,site-per-process'
-                                            ]
+                                            args: ['--no-sandbox', '--disable-setuid-sandbox']
                                         });
                                         
                                         const page = await browser.newPage();
+                                        let couponCode = null;
                                         
                                         // Store the redirect URL
                                         let redirectUrl = null;
@@ -102,9 +98,6 @@ async function main() {
                                         await page.setRequestInterception(true);
                                         page.on('request', request => {
                                             const url = request.url();
-                                            console.log('Request URL:', url);
-                                            
-                                            // Capture the redirect URL
                                             if (url.includes('/go/3/')) {
                                                 redirectUrl = url;
                                                 console.log('Found redirect URL:', redirectUrl);
@@ -112,77 +105,36 @@ async function main() {
                                             request.continue();
                                         });
                                         
-                                        // Set viewport and user agent
-                                        await page.setViewport({ width: 1280, height: 800 });
-                                        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36');
-                                        
                                         // Navigate to the offer URL
                                         console.log('Navigating to:', offerData.url);
                                         await page.goto(offerData.url, { waitUntil: 'networkidle0' });
                                         
-                                        // Take a screenshot
-                                        await page.screenshot({ path: 'initial-page.png' });
+                                        // Click the button
+                                        const buttonSelector = '.OutlinkCta';
+                                        await page.waitForSelector(buttonSelector);
+                                        await page.click(buttonSelector);
                                         
-                                        // Try different button selectors
-                                        const buttonSelectors = [
-                                            'button.OutlinkCta',
-                                            '.OutlinkCta',
-                                            'button:contains("Obțineți codul")',
-                                            '[data-testid="reveal-coupon-button"]',
-                                            '.Offer button'
-                                        ];
-                                        
-                                        let buttonFound = false;
-                                        for (const selector of buttonSelectors) {
-                                            try {
-                                                const button = await page.$(selector);
-                                                if (button) {
-                                                    console.log(`Found button with selector: ${selector}`);
-                                                    await button.click();
-                                                    buttonFound = true;
-                                                    break;
-                                                }
-                                            } catch (e) {
-                                                console.log(`Selector ${selector} not found`);
-                                            }
-                                        }
-                                        
-                                        if (!buttonFound) {
-                                            console.log('No button found with standard selectors, trying JavaScript click');
-                                            await page.evaluate(() => {
-                                                const buttons = Array.from(document.querySelectorAll('button'));
-                                                const button = buttons.find(b => 
-                                                    b.textContent.includes('Obțineți codul') || 
-                                                    b.className.includes('OutlinkCta')
-                                                );
-                                                if (button) button.click();
-                                            });
-                                        }
-                                        
-                                        // Wait for redirect URL
-                                        await page.waitForTimeout(2000);
+                                        // Wait for redirect
+                                        await new Promise(resolve => setTimeout(resolve, 2000));
                                         
                                         if (redirectUrl) {
                                             console.log('Following redirect URL...');
                                             const newPage = await browser.newPage();
                                             await newPage.goto(redirectUrl, { waitUntil: 'networkidle0' });
                                             
-                                            // Take screenshot of final page
-                                            await newPage.screenshot({ path: 'final-page.png' });
-                                            
-                                            // Try multiple ways to get the coupon code
-                                            const couponCode = await newPage.evaluate(() => {
+                                            // Try to get the coupon code
+                                            couponCode = await newPage.evaluate(() => {
                                                 // Try input field
                                                 const input = document.querySelector('input[type="text"]');
-                                                if (input && input.value) return input.value;
+                                                if (input?.value) return input.value;
                                                 
                                                 // Try specific coupon element
                                                 const couponElement = document.querySelector('[data-testid="coupon-code"]');
-                                                if (couponElement) return couponElement.textContent;
+                                                if (couponElement?.textContent) return couponElement.textContent;
                                                 
                                                 // Try any element with 'coupon' in the class
                                                 const couponDiv = document.querySelector('[class*="coupon"]');
-                                                if (couponDiv) return couponDiv.textContent;
+                                                if (couponDiv?.textContent) return couponDiv.textContent;
                                                 
                                                 return null;
                                             });
@@ -191,9 +143,9 @@ async function main() {
                                                 offerData.couponCode = couponCode;
                                                 console.log(`Successfully found coupon code: ${couponCode}`);
                                             } else {
-                                                console.log('No coupon code found on final page');
-                                                const content = await newPage.content();
-                                                console.log('Final page content:', content.substring(0, 1000));
+                                                console.log('No coupon code found on redirect page');
+                                                const html = await newPage.content();
+                                                console.log('Page HTML:', html.substring(0, 500));
                                             }
                                             
                                             await newPage.close();
