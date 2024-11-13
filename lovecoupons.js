@@ -60,8 +60,11 @@ async function main() {
                             };
 
                             const offerTitle = $('h3.text-lg').filter((_, el) => $(el).text().trim() === item.item?.name);
+                            console.log(offerTitle);
                             const offerArticle = offerTitle.closest('article.Offer');
+                            console.log(offerArticle);
                             const hasButton = offerArticle.find('span:contains("Obțineți codul")').length > 0;
+                            console.log(hasButton);
 
                             if (hasButton && offerData.url) {
                                 try {
