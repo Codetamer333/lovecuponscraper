@@ -61,8 +61,6 @@ async function main() {
                                 couponCode: null
                             };
 
-                            console.log('Looking for offer with name:', offerData.name);
-
                             // Find matching article
                             const matchingArticle = $('article.Offer').filter((_, article) => {
                                 const articleTitle = $(article).find('h3.text-lg').text().trim();
@@ -71,15 +69,11 @@ async function main() {
                             }).first();
 
                             if (matchingArticle.length) {
-                                console.log('Found matching article for:', offerData.name);
-                                
                                 const button = matchingArticle.find('.OutlinkCta span:contains("Obțineți codul")').first();
                                 const hasButton = button.length > 0;
                                 
                                 if (hasButton && offerData.url) {
                                     try {
-                                        console.log(`Found button for offer: ${offerData.name}`);
-                                        
                                         const browser = await puppeteer.launch({
                                             headless: true,
                                             args: ['--no-sandbox', '--disable-setuid-sandbox']
@@ -120,7 +114,7 @@ async function main() {
                                         console.error('Error fetching coupon:', error.message);
                                     }
                                 } else {
-                                    console.log('No button found or no URL available');
+                                    console.log('No coupon code found');
                                 }
                             } else {
                                 console.log('No matching article found for:', offerData.name);
