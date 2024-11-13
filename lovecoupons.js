@@ -64,10 +64,10 @@ async function main() {
                             // Find the specific article that contains this offer
                             const offerArticle = $('article.Offer').filter((_, article) => {
                                 const articleTitle = $(article).find('h3.text-lg').text().trim();
-                                console.log('Article title found:', articleTitle);
+                              // console.log('Article title found:', articleTitle);
                                 return articleTitle === offerData.name;
                             });
-
+                            console.log(offerArticle);
                             if (offerArticle.length > 0) {
                                 console.log('Found matching article');
                                 // Now look for the button only within this specific article
