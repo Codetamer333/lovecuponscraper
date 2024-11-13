@@ -59,52 +59,51 @@ async function main() {
                                 couponCode: null
                             };
 
-                            console.log('Looking for offer with name:', item.item?.name);
+                            console.log('Looking for offer with name:', offerData.name);
 
-                            $('h3.text-lg').each((_, el) => {
-                                console.log('Found h3 title:', $(el).text().trim());
+                            // Find the specific article that contains this offer
+                            const offerArticle = $('article.Offer').filter((_, article) => {
+                                const articleTitle = $(article).find('h3.text-lg').text().trim();
+                                console.log('Article title found:', articleTitle);
+                                return articleTitle === offerData.name;
                             });
 
-                            const offerTitle = $('h3.text-lg').filter((_, el) => {
-                                const titleText = $(el).text().trim();
-                                console.log('Comparing:', titleText, 'with:', item.item?.name);
-                                return titleText === item.item?.name;
-                            });
-                            console.log('Matched offer title:', offerTitle.length > 0 ? 'found' : 'not found');
+                            if (offerArticle.length > 0) {
+                                console.log('Found matching article');
+                                // Now look for the button only within this specific article
+                                const button = offerArticle.find('.OutlinkCta span:contains("Obțineți codul")');
+                                const hasButton = button.length > 0;
+                                console.log('Has button:', hasButton);
 
-                            const offerArticle = offerTitle.closest('article.Offer');
-                            console.log('Found offer article:', offerArticle.length > 0 ? 'yes' : 'no');
+                                if (hasButton && offerData.url) {
+                                    try {
+                                        console.log(`Found coupon button for offer: ${offerData.name}. Fetching code from ${offerData.url}`);
+                                        
+                                        await new Promise(resolve => setTimeout(resolve, 2000));
 
-                            const button = offerArticle.find('.OutlinkCta span:contains("Obțineți codul")');
-                            const hasButton = button.length > 0;
-                            console.log('Has button:', hasButton);
-
-                            if (hasButton && offerData.url) {
-                                try {
-                                    console.log(`Found coupon button for offer: ${offerData.name}. Fetching code from ${offerData.url}`);
-                                    
-                                    await new Promise(resolve => setTimeout(resolve, 2000));
-
-                                    const codePageResponse = await fetch(offerData.url, {
-                                        headers: {
-                                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
-                                            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-                                            'Accept-Language': 'ro-RO,ro;q=0.9,en-US;q=0.8,en;q=0.7'
+                                        const codePageResponse = await fetch(offerData.url, {
+                                            headers: {
+                                                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+                                                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                                                'Accept-Language': 'ro-RO,ro;q=0.9,en-US;q=0.8,en;q=0.7'
+                                            }
+                                        });
+                                        const codePageHtml = await codePageResponse.text();
+                                        const $codePage = cheerio.load(codePageHtml);
+                                        
+                                        const couponInput = $codePage('input[id^="coupon-"]');
+                                        if (couponInput.length > 0) {
+                                            offerData.couponCode = couponInput.attr('value');
+                                            console.log(`Found coupon code for ${offerData.name}: ${offerData.couponCode}`);
                                         }
-                                    });
-                                    const codePageHtml = await codePageResponse.text();
-                                    const $codePage = cheerio.load(codePageHtml);
-                                    
-                                    const couponInput = $codePage('input[id^="coupon-"]');
-                                    if (couponInput.length > 0) {
-                                        offerData.couponCode = couponInput.attr('value');
-                                        console.log(`Found coupon code for ${offerData.name}: ${offerData.couponCode}`);
+                                    } catch (error) {
+                                        console.error(`Error fetching coupon code for ${offerData.name}:`, error.message);
                                     }
-                                } catch (error) {
-                                    console.error(`Error fetching coupon code for ${offerData.name}:`, error.message);
+                                } else {
+                                    console.log(`No coupon button found for offer: ${offerData.name}`);
                                 }
                             } else {
-                                console.log(`No coupon button found for offer: ${offerData.name}`);
+                                console.log(`No matching article found for offer: ${offerData.name}`);
                             }
 
                             return offerData;
