@@ -108,13 +108,27 @@ async function main() {
                                         const html = await response.text();
                                         const $codePage = cheerio.load(html);
                                         
-                                        // Look for the coupon input
-                                        const couponInput = $codePage('input[id^="coupon-"]');
+                                        // Look for the coupon input using the exact structure
+                                        const couponInput = $codePage('.RevealCoupon input[type="text"]').first();
+                                        
+                                        // Debug logging
+                                        console.log('Found RevealCoupon divs:', $codePage('.RevealCoupon').length);
+                                        console.log('Found coupon inputs:', $codePage('.RevealCoupon input[type="text"]').length);
+                                        
                                         if (couponInput.length > 0) {
-                                            offerData.couponCode = couponInput.attr('value');
+                                            offerData.couponCode = couponInput.val();
                                             console.log(`Successfully found coupon code: ${offerData.couponCode}`);
                                         } else {
-                                            console.log('No coupon input found on page');
+                                            // Try alternative selectors if the first one fails
+                                            const altCouponInput = $codePage('input[id^="coupon-"]').first();
+                                            if (altCouponInput.length > 0) {
+                                                offerData.couponCode = altCouponInput.val();
+                                                console.log(`Found coupon code using alternative selector: ${offerData.couponCode}`);
+                                            } else {
+                                                console.log('No coupon input found on page');
+                                                // Log the page HTML for debugging
+                                                console.log('Page HTML:', html.substring(0, 500) + '...');
+                                            }
                                         }
                                     } catch (error) {
                                         console.error('Error fetching coupon:', error.message);
