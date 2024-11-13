@@ -64,7 +64,6 @@ async function main() {
                             // First log all articles and their titles for debugging
                             $('article.Offer').each((_, article) => {
                                 const title = $(article).find('h3.text-lg').text().trim();
-                                console.log('Found article with title:', title);
                             });
 
                             // Find the specific article that contains this offer
@@ -96,40 +95,72 @@ async function main() {
                                         // Add delay before fetching
                                         await new Promise(resolve => setTimeout(resolve, 2000));
 
-                                        // Fetch the coupon page
+                                        // Enhanced headers and fetch options
                                         const response = await fetch(offerData.url, {
+                                            method: 'GET',
                                             headers: {
                                                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
-                                                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-                                                'Accept-Language': 'ro-RO,ro;q=0.9,en-US;q=0.8,en;q=0.7'
-                                            }
+                                                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+                                                'Accept-Language': 'ro-RO,ro;q=0.9,en-US;q=0.8,en;q=0.7',
+                                                'Accept-Encoding': 'gzip, deflate, br',
+                                                'Connection': 'keep-alive',
+                                                'Upgrade-Insecure-Requests': '1',
+                                                'Sec-Fetch-Dest': 'document',
+                                                'Sec-Fetch-Mode': 'navigate',
+                                                'Sec-Fetch-Site': 'none',
+                                                'Sec-Fetch-User': '?1',
+                                                'Cache-Control': 'max-age=0',
+                                                'Referer': 'https://www.lovecoupons.ro/',
+                                            },
+                                            redirect: 'follow',
+                                            follow: 20,
+                                            timeout: 30000,
+                                            compress: true,
+                                            credentials: 'include'
                                         });
 
+                                        if (!response.ok) {
+                                            throw new Error(`HTTP error! status: ${response.status}`);
+                                        }
+
                                         const html = await response.text();
+                                        console.log('Response URL:', response.url);
+                                        console.log('Response status:', response.status);
+                                        
+                                        // Check if we got the Cloudflare page
+                                        if (html.includes('Just a moment...')) {
+                                            console.log('Got Cloudflare protection page');
+                                            throw new Error('Cloudflare protection detected');
+                                        }
+
                                         const $codePage = cheerio.load(html);
                                         
-                                        // Look for the coupon input using the exact structure
-                                        const couponInput = $codePage('.RevealCoupon input[type="text"]').first();
+                                        // Try multiple selectors for the coupon code
+                                        let couponCode = null;
                                         
-                                        // Debug logging
-                                        console.log('Found RevealCoupon divs:', $codePage('.RevealCoupon').length);
-                                        console.log('Found coupon inputs:', $codePage('.RevealCoupon input[type="text"]').length);
+                                        // Try the RevealCoupon input
+                                        const revealCouponInput = $codePage('.RevealCoupon input[type="text"]').first();
+                                        if (revealCouponInput.length > 0) {
+                                            couponCode = revealCouponInput.val() || revealCouponInput.attr('value');
+                                        }
                                         
-                                        if (couponInput.length > 0) {
-                                            offerData.couponCode = couponInput.val();
-                                            console.log(`Successfully found coupon code: ${offerData.couponCode}`);
-                                        } else {
-                                            // Try alternative selectors if the first one fails
-                                            const altCouponInput = $codePage('input[id^="coupon-"]').first();
-                                            if (altCouponInput.length > 0) {
-                                                offerData.couponCode = altCouponInput.val();
-                                                console.log(`Found coupon code using alternative selector: ${offerData.couponCode}`);
-                                            } else {
-                                                console.log('No coupon input found on page');
-                                                // Log the page HTML for debugging
-                                                console.log('Page HTML:', html.substring(0, 500) + '...');
+                                        // Try the direct coupon input
+                                        if (!couponCode) {
+                                            const directCouponInput = $codePage('input[id^="coupon-"]').first();
+                                            if (directCouponInput.length > 0) {
+                                                couponCode = directCouponInput.val() || directCouponInput.attr('value');
                                             }
                                         }
+
+                                        if (couponCode) {
+                                            offerData.couponCode = couponCode;
+                                            console.log(`Successfully found coupon code: ${couponCode}`);
+                                        } else {
+                                            console.log('No coupon input found on page');
+                                            console.log('Page title:', $codePage('title').text());
+                                            console.log('Available inputs:', $codePage('input').length);
+                                        }
+
                                     } catch (error) {
                                         console.error('Error fetching coupon:', error.message);
                                     }
