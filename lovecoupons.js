@@ -28,6 +28,7 @@ async function main() {
                         try {
                             return JSON.parse($(el).html());
                         } catch (e) {
+                            console.error('Error parsing JSON-LD:', e.message);
                             return null;
                         }
                     })
@@ -41,6 +42,7 @@ async function main() {
                     offers: []
                 };
 
+                // Extract brand data from JSON-LD
                 for (const script of jsonLdScripts) {
                     if (script['@type'] === 'Organization') {
                         brandData.name = script.name;
@@ -48,6 +50,7 @@ async function main() {
                     }
                     if (script['@type'] === 'ItemList') {
                         brandData.offers = await Promise.all(script.itemListElement?.map(async (item, index) => {
+                            // Add delay between processing each offer
                             await new Promise(resolve => setTimeout(resolve, index * 2000));
 
                             const offerData = {
@@ -60,22 +63,17 @@ async function main() {
 
                             console.log('Looking for offer with name:', offerData.name);
 
-                            // Find the specific article that contains this offer
-                            let matchingArticle = null;
-                            $('article.Offer').each((_, article) => {
+                            // Find matching article
+                            const matchingArticle = $('article.Offer').filter((_, article) => {
                                 const articleTitle = $(article).find('h3.text-lg').text().trim();
                                 const normalizedArticleTitle = articleTitle.replace('Verificat ', '');
-                                if (normalizedArticleTitle === offerData.name) {
-                                    matchingArticle = article;
-                                    return false;
-                                }
-                            });
+                                return normalizedArticleTitle === offerData.name;
+                            }).first();
 
-                            if (matchingArticle) {
+                            if (matchingArticle.length) {
                                 console.log('Found matching article for:', offerData.name);
                                 
-                                const $article = $(matchingArticle);
-                                const button = $article.find('.OutlinkCta span:contains("Obțineți codul")').first();
+                                const button = matchingArticle.find('.OutlinkCta span:contains("Obțineți codul")').first();
                                 const hasButton = button.length > 0;
                                 
                                 if (hasButton && offerData.url) {
@@ -129,14 +127,39 @@ async function main() {
                             }
 
                             return offerData;
-                        })) || [];
+                        }) || []);
                     }
                 }
 
-                if (brandData.name || brandData.offers.length > 0) {
-                    await Actor.pushData(brandData);
-                    console.log(`Saved data for: ${brandData.name || request.url}`);
+                // If no offers were found in JSON-LD, try scraping directly from the page
+                if (brandData.offers.length === 0) {
+                    console.log('No offers found in JSON-LD, trying direct page scraping');
+                    
+                    $('article.Offer').each(async (_, article) => {
+                        const $article = $(article);
+                        const name = $article.find('h3.text-lg').text().trim();
+                        const description = $article.find('.description').text().trim();
+                        const button = $article.find('.OutlinkCta span:contains("Obțineți codul")').first();
+                        
+                        const offerData = {
+                            name,
+                            description,
+                            validFrom: null,
+                            url: request.url,
+                            couponCode: null
+                        };
+
+                        if (button.length > 0) {
+                            // Process offer with button
+                            // ... rest of the code for fetching coupon ...
+                        }
+                        
+                        brandData.offers.push(offerData);
+                    });
                 }
+
+                console.log(`Saved data for: ${brandData.name}`);
+                await Actor.pushData(brandData);
             }
         },
     });
