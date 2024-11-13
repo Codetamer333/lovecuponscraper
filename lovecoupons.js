@@ -71,8 +71,6 @@ async function main() {
                             let matchingArticle = null;
                             $('article.Offer').each((_, article) => {
                                 const articleTitle = $(article).find('h3.text-lg').text().trim();
-                                console.log('Comparing:', articleTitle, 'with:', offerData.name);
-                                
                                 // Remove "Verificat" prefix if it exists and compare
                                 const normalizedArticleTitle = articleTitle.replace('Verificat ', '');
                                 if (normalizedArticleTitle === offerData.name) {
@@ -86,19 +84,10 @@ async function main() {
                                 
                                 // Search for the button within this specific article
                                 const $article = $(matchingArticle);
-                                
-                                // Log the entire HTML structure of the article for debugging
-                                console.log('Article HTML:', $article.html());
-                                
                                 // Look for the button using the exact structure
                                 const button = $article.find('.OutlinkCta span:contains("Obțineți codul")').first();
                                 const hasButton = button.length > 0;
                                 
-                                // Additional debugging
-                                console.log('All spans in article:', $article.find('span').map((_, el) => $(el).text()).get());
-                                console.log('Button element found:', button.length > 0 ? button.html() : 'not found');
-                                console.log('Button found:', hasButton);
-
                                 if (hasButton && offerData.url) {
                                     try {
                                         console.log(`Found button for offer: ${offerData.name}`);
